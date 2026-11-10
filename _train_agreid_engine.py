@@ -19,6 +19,8 @@ import torch.nn.functional as F
 
 from clustercontrast import datasets
 from clustercontrast import models
+from agreid_identity import (
+    AGREID_TEST_IDENTITIES, parse_agreid_name)
 from clustercontrast.models.cm import ClusterMemory
 from clustercontrast.trainers import ClusterContrastTrainer_DCL, ClusterContrastTrainer_PCLMP
 from clustercontrast.trainers_no_ema_loss import ClusterContrastTrainer_PCLMP_NoEMALoss
@@ -352,8 +354,18 @@ def process_test_regdb(img_dir, trial = 1, modal = 'visible'):
         data_file_list = open(input_data_path, 'rt').read().splitlines()
         # Get full list of image and labels
         # idx files contain relative paths: bounding_box_test_ground/xxx.jpg label
-        file_image = [osp.join(img_dir, s.split(' ')[0]) for s in data_file_list]
-        file_label = [int(s.split(' ')[1]) for s in data_file_list]
+        relative_paths = [s.split()[0] for s in data_file_list]
+        file_image = [osp.join(img_dir, path) for path in relative_paths]
+        # Rebuild labels from the official P/T/A fields. Historical protocol
+        # TXT files may contain P-only labels and must not control evaluation.
+        file_label = [
+            parse_agreid_name(osp.basename(path)).pid
+            for path in relative_paths]
+        identity_count = len(set(file_label))
+        if identity_count != AGREID_TEST_IDENTITIES:
+            raise RuntimeError(
+                'AG-ReID {} protocol contains {} identities; expected {}'
+                .format(modal, identity_count, AGREID_TEST_IDENTITIES))
         
     return file_image, np.array(file_label)
 def eval_regdb(distmat, q_pids, g_pids, max_rank = 20):

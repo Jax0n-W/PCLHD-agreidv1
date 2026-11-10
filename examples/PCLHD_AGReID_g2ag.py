@@ -25,7 +25,6 @@ from __future__ import print_function, absolute_import
 import argparse
 import os.path as osp
 import os
-import re
 import sys
 import time
 import numpy as np
@@ -41,6 +40,8 @@ import torch.utils.data as data
 from torch.autograd import Variable
 
 from clustercontrast import models
+from agreid_identity import (
+    AGREID_TEST_IDENTITIES, parse_agreid_name)
 from clustercontrast.utils.data import transforms as T
 from clustercontrast.utils.data.preprocessor import Preprocessor
 from clustercontrast.utils.serialization import load_checkpoint
@@ -124,16 +125,25 @@ def parse_agreid_pid(fname):
     Extract PID from AG-ReID filename.
 
     AG-ReID format: P{pid}T{tracklet}A...C{cam}F{frame}.jpg
-    e.g. "P0000T02140A0C0F121.jpg" -> pid=0
-         "P0002T04041A0C0F151.jpg" -> pid=2
+    The official identity is P, T and A concatenated; P alone is not unique.
 
     Returns:
         pid: person ID (int), or None if parse fails
     """
-    m = re.match(r'P(\d+)', fname)
-    if m is None:
+    try:
+        return parse_agreid_name(fname).pid
+    except ValueError:
         return None
-    return int(m.group(1))
+
+
+def validate_agreid_test_identity_count(*entry_groups):
+    identities = {
+        int(pid) for group in entry_groups for _, pid, _ in group}
+    if len(identities) != AGREID_TEST_IDENTITIES:
+        raise RuntimeError(
+            "AG-ReID test identity count mismatch: expected {}, found {}. "
+            "The official identity must concatenate P/T/A.".format(
+                AGREID_TEST_IDENTITIES, len(identities)))
 
 
 def camid_from_folder(folder_name):
@@ -344,9 +354,9 @@ def main():
     parser.add_argument('--data-dir', type=str, required=True,
                         help='Path to AGreid_test dataset, '
                              'e.g. /home/lab338/Jaxon/dataset/AGreid_test')
-    parser.add_argument('--resume', type=str, required=True,
-                        help='Path to model_best.pth.tar, '
-                             'e.g. /home/lab338/Jaxon/PCLHD-main/logs/agreid_s2/1/model_best.pth.tar')
+    parser.add_argument(
+        '--resume', type=str, required=True,
+        help='Path to checkpoint.pth.tar (or a legacy best checkpoint)')
     parser.add_argument('--arch', type=str, default='agw')
     parser.add_argument('--height', type=int, default=288)
     parser.add_argument('--width', type=int, default=144)
@@ -385,6 +395,8 @@ def main():
     # Ground (RGB, camera=C03) images
     ground_query = load_images_from_folder('query_all_c3', args.data_dir)
     ground_gallery = load_images_from_folder('bounding_box_test_all_c3', args.data_dir)
+    validate_agreid_test_identity_count(
+        aerial_query, aerial_gallery, ground_query, ground_gallery)
 
     print("  query_all_c0 (Aerial/IR):       {} images".format(len(aerial_query)))
     print("  query_all_c3 (Ground/RGB):      {} images".format(len(ground_query)))

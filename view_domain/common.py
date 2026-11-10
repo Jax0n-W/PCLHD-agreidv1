@@ -5,9 +5,16 @@ import json
 import os
 import random
 import re
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, MutableMapping, Sequence, Tuple
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from agreid_identity import parse_agreid_name
 
 
 DOMAINS = ("aerial", "ground")
@@ -43,7 +50,12 @@ def parse_image_name(path: Path) -> Tuple[str, str]:
             "0001_c3_000002.jpg and P0001_T04041_C00_F121.jpg"
             .format(path.name)
         )
-    return tokens[0], cameras[0]
+    if tokens[0].lower().startswith("p") and any(
+            token.lower().startswith("t") for token in tokens[1:]):
+        pid = str(parse_agreid_name(path.name).pid)
+    else:
+        pid = tokens[0]
+    return pid, cameras[0]
 
 
 def discover_images(root: Path) -> List[Path]:

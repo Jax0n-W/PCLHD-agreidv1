@@ -24,6 +24,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from agreid_identity import (
+    AGREID_TEST_IDENTITIES, parse_agreid_name)
+
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp"}
 
@@ -111,7 +118,10 @@ def parse_pid_from_component(component: str) -> Optional[int]:
     return int(match.group(1)) if match else None
 
 
-def parse_pid(path: Path, role_root: Path) -> int:
+def parse_pid(path: Path, role_root: Path, dataset: str) -> int:
+    if dataset == "agreid":
+        return parse_agreid_name(path.name).pid
+
     # Nested test sets conventionally use one PID directory per identity.
     relative = path.relative_to(role_root)
     for component in reversed(relative.parts[:-1]):
@@ -132,7 +142,8 @@ def parse_pid(path: Path, role_root: Path) -> int:
     raise ValueError("Cannot parse PID from image path: {}".format(path))
 
 
-def collect_samples(root: Path, role_root: Path) -> Tuple[Sample, ...]:
+def collect_samples(root: Path, role_root: Path,
+                    dataset: str) -> Tuple[Sample, ...]:
     paths = sorted(
         (path for path in role_root.rglob("*")
          if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES),
@@ -151,7 +162,7 @@ def collect_samples(root: Path, role_root: Path) -> Tuple[Sample, ...]:
         samples.append(Sample(
             path=path,
             relative_path=relative,
-            raw_pid=parse_pid(path, role_root),
+            raw_pid=parse_pid(path, role_root, dataset),
             top_folder=relative.split("/", 1)[0],
         ))
     return tuple(samples)
@@ -229,7 +240,7 @@ def build_protocols(args: argparse.Namespace) -> Tuple[
             args.data_root, layout[role], role, required=True)
 
     samples = {
-        role: collect_samples(args.data_root, directory)
+        role: collect_samples(args.data_root, directory, args.dataset)
         for role, directory in resolved_dirs.items()
     }
 
@@ -240,7 +251,8 @@ def build_protocols(args: argparse.Namespace) -> Tuple[
             args.data_root, layout["extra_gallery"], "extra_gallery",
             required=False)
         if extra_dir is not None:
-            extra_samples = collect_samples(args.data_root, extra_dir)
+            extra_samples = collect_samples(
+                args.data_root, extra_dir, args.dataset)
 
     extra_by_protocol = {"A2G": False, "G2A": False, "G2AG": False}
     if args.dataset == "lagper" and extra_dir is not None:
@@ -457,6 +469,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     protocols, _, directories = build_protocols(args)
     label_map = build_label_map(protocols)
+    if (args.dataset == "agreid" and
+            len(label_map) != AGREID_TEST_IDENTITIES):
+        raise RuntimeError(
+            "AG-ReID test identity count mismatch: expected {}, found {}. "
+            "Verify that labels are parsed from P/T/A rather than P alone."
+            .format(AGREID_TEST_IDENTITIES, len(label_map)))
     protocol_reports = {
         name: validate_protocol(protocol, strict=args.strict)
         for name, protocol in protocols.items()

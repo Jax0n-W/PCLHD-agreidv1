@@ -11,6 +11,7 @@ import sys
 
 ROOT = osp.dirname(osp.dirname(osp.abspath(__file__)))
 REQUIRED = (
+    "agreid_identity.py",
     "train_agreid.py",
     "experiment_runner.py",
     "_train_agreid_engine.py",
@@ -18,6 +19,7 @@ REQUIRED = (
     "scripts/run_all_ablations.py",
     "scripts/test_all_checkpoints.py",
     "tests/test_release_configuration.py",
+    "tests/test_agreid_identity.py",
     "view_scores/agreid_aerial_view_scores_foreground.csv",
 )
 FORBIDDEN_SUFFIXES = (
@@ -49,6 +51,20 @@ def main():
         if "ChannelRandomErasing(" not in source:
             ok = fail("spatial random erasing missing from {}".format(
                 filename)) and ok
+
+    identity_consumers = {
+        "_train_agreid_engine.py": "parse_agreid_name",
+        "clustercontrast/datasets/agreid_ir.py": "parse_agreid_name",
+        "clustercontrast/datasets/agreid_rgb.py": "parse_agreid_name",
+        "examples/PCLHD_AGReID_g2ag.py": "parse_agreid_name",
+        "tools/generate_evaluation_protocols.py": "parse_agreid_name",
+    }
+    for relative, symbol in identity_consumers.items():
+        with open(osp.join(ROOT, *relative.split("/")), "r",
+                  encoding="utf-8") as handle:
+            if symbol not in handle.read():
+                ok = fail("official identity parser missing from {}".format(
+                    relative)) and ok
 
     artifacts = []
     for directory, dirnames, filenames in os.walk(ROOT):

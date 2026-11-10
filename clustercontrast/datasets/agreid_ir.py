@@ -1,8 +1,10 @@
 from __future__ import print_function, absolute_import
 import os.path as osp
 import glob
-import re
 from ..utils.data import BaseImageDataset
+from agreid_identity import (
+    AGREID_TEST_IDENTITIES, AGREID_TRAIN_IDENTITIES, parse_agreid_name,
+    validate_identity_count)
 
 
 class agreid_ir(BaseImageDataset):
@@ -42,6 +44,12 @@ class agreid_ir(BaseImageDataset):
         train = self._process_dir(self.train_dir, relabel=True)
         query = self._process_dir(self.query_dir, relabel=False)
         gallery = self._process_dir(self.gallery_dir, relabel=False)
+        validate_identity_count(
+            train, AGREID_TRAIN_IDENTITIES, "aerial training split")
+        if query or gallery:
+            validate_identity_count(
+                query + gallery, AGREID_TEST_IDENTITIES,
+                "aerial test split")
 
         if verbose:
             print("=> agreid_ir (aerial) loaded, trial={}".format(trial))
@@ -70,31 +78,20 @@ class agreid_ir(BaseImageDataset):
     def _process_dir(self, dir_path, relabel=False):
         if not osp.exists(dir_path):
             return []
-        img_paths = glob.glob(osp.join(dir_path, '*.jpg'))
-        # pattern: P{pid}_T{traj_id}_C{camera_id}_F{frame}.jpg
-        # Example: P0034_T02210_C10_F19471.jpg -> pid=0034, camera_id=10
-        pattern = re.compile(r'P(\d+)_T\w+_C(\d+)_F\d+\.jpg')
-
-        pid_container = set()
-        for img_path in img_paths:
-            match = pattern.search(img_path)
-            if match is None:
-                continue
-            pid = int(match.group(1))
-            if pid == -1:
-                continue  # junk images are just ignored
-            pid_container.add(pid)
-        pid2label = {pid: label for label, pid in enumerate(pid_container)}
+        img_paths = sorted(glob.glob(osp.join(dir_path, '*.jpg')))
+        if relabel and not img_paths:
+            raise RuntimeError(
+                "No AG-ReID training images found under '{}'".format(dir_path))
+        parsed = [(img_path, parse_agreid_name(img_path))
+                  for img_path in img_paths]
+        pid_container = {record.pid for _, record in parsed}
+        pid2label = {
+            pid: label for label, pid in enumerate(sorted(pid_container))}
 
         dataset = []
-        for img_path in img_paths:
-            match = pattern.search(img_path)
-            if match is None:
-                continue
-            pid = int(match.group(1))
-            camid = int(match.group(2))
-            if pid == -1:
-                continue  # junk images are just ignored
+        for img_path, record in parsed:
+            pid = record.pid
+            camid = record.camid
             if relabel:
                 pid = pid2label[pid]
             dataset.append((img_path, pid, camid))
