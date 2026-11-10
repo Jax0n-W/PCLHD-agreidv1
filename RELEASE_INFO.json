@@ -1,0 +1,25 @@
+{
+  "release_name": "PCLHD_AGReID_DT_release_20261110",
+  "dataset": "AG-ReID.v1",
+  "purpose": "2x2 ablation of Stage-1 D-AGVA and Stage-2 three-domain matching",
+  "experiments": {
+    "baseline": {"dynamic_agva": false, "three_domain": false},
+    "dynamic": {"dynamic_agva": true, "three_domain": false},
+    "three_domain": {"dynamic_agva": false, "three_domain": true},
+    "full": {"dynamic_agva": true, "three_domain": true}
+  },
+  "fixed_settings": {
+    "channel_adap_gray_stage1": false,
+    "channel_adap_gray_stage2": false,
+    "channel_exchange_stage1": false,
+    "channel_exchange_stage2": false,
+    "channel_random_erasing": true,
+    "stage2_memory": "CMhard",
+    "stage2_ema_loss_backprop": false,
+    "stage2_ema_encoder_update": true,
+    "stage2_all_memory_optimization": true,
+    "default_checkpoint_policy": "final"
+  },
+  "training_artifacts_included": false,
+  "dataset_included": false
+}

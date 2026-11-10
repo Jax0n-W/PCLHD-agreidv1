@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.pth
+*.pth.tar
+*.pt
+*.ckpt
+logs*/
+/data/
+/datasets/
+.pytest_cache/
+.idea/
+.vscode/
