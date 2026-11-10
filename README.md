@@ -23,8 +23,8 @@ Stage 2 始终使用原始图像。三域匹配只作用于 Stage 2。
 - Stage 2 的 `loss_ema` 不参与反向传播；
 - EMA encoder 参数更新保留；
 - ALL-memory 第二次优化保留；
-- 默认使用 Stage 1 最后一个 epoch 的 `checkpoint.pth.tar` 初始化 Stage 2；
-- 不依据正式测试集 Rank-1/mAP 选择 checkpoint。
+- 默认使用 Stage 1 的 `model_best.pth.tar` 初始化 Stage 2；
+- Stage 1 best 由修正 P/T/A 身份后的 G$\rightarrow$A Rank-1 选取。
 
 ## 数据目录
 
@@ -129,7 +129,7 @@ python train_agreid.py \
 TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=1 CUDA_VISIBLE_DEVICES=0 \
 python train_agreid.py \
   --experiment three_domain --run-mode stage2 \
-  --stage1-checkpoint /path/to/stage1/checkpoint.pth.tar \
+  --stage1-checkpoint /path/to/stage1/model_best.pth.tar \
   --data-dir /home/lab338/Jaxon/dataset/AGreid_train \
   --logs-dir /home/lab338/Jaxon/PCLHD_AGReID_DT_release/logs_agreid_dt
 ```
@@ -139,8 +139,8 @@ python train_agreid.py \
 Stage 1：
 
 ```text
-logs_agreid_dt/agreid_dt_s1_d0_channel_off_seed1/1/checkpoint.pth.tar
-logs_agreid_dt/agreid_dt_s1_d1_channel_off_seed1/1/checkpoint.pth.tar
+logs_agreid_dt/agreid_dt_s1_d0_channel_off_seed1/1/model_best.pth.tar
+logs_agreid_dt/agreid_dt_s1_d1_channel_off_seed1/1/model_best.pth.tar
 ```
 
 Stage 2：
@@ -152,9 +152,11 @@ logs_agreid_dt/agreid_dt_three_domain_d0_t1_channel_off_s2_seed1/1/checkpoint.pt
 logs_agreid_dt/agreid_dt_full_d1_t1_channel_off_s2_seed1/1/checkpoint.pth.tar
 ```
 
-`model_best.pth.tar` 仍可能由旧训练引擎写出，兼容历史结果；正式受控实验默认
-不使用它。只有显式设置 `--checkpoint-policy legacy-best` 时，完整流程才会
-用该文件初始化 Stage 2。
+完整流程默认通过 `--checkpoint-policy best` 使用 Stage 1 的
+`model_best.pth.tar` 初始化 Stage 2。若需要固定使用 Stage 1 最后一个 epoch，
+可显式传入 `--checkpoint-policy final`。需要注意，当前 best 依据正式测试集
+G$\rightarrow$A Rank-1 选择；虽然 P/T/A 身份已修正，这种选择方式仍可能产生
+test-set leakage，论文正式实验应明确披露或改用独立 validation split。
 
 ## 批量测试
 

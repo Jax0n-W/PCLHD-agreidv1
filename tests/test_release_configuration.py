@@ -70,8 +70,16 @@ class ReleaseConfigurationTests(unittest.TestCase):
                 command[command.index("--stage2-memorybank") + 1], "CMhard")
             self.assertIn("--no-ema-loss", command)
 
-    def test_final_checkpoint_is_default(self):
+    def test_stage1_best_checkpoint_is_default(self):
         args = parse("--experiment", "baseline")
+        stage1_name, _ = runner.default_log_names(args)
+        self.assertTrue(
+            runner.checkpoint_path(args, stage1_name).endswith(
+                "model_best.pth.tar"))
+
+    def test_final_checkpoint_remains_available(self):
+        args = parse(
+            "--experiment", "baseline", "--checkpoint-policy", "final")
         stage1_name, _ = runner.default_log_names(args)
         self.assertTrue(
             runner.checkpoint_path(args, stage1_name).endswith(

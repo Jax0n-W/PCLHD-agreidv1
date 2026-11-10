@@ -49,12 +49,13 @@ def build_parser():
         "--run-mode", choices=("full", "stage1", "stage2"), default="full")
     parser.add_argument(
         "--stage1-checkpoint", default="",
-        help="Required in stage2 mode; final checkpoint is recommended")
+        help="Required in stage2 mode; model_best.pth.tar is the default policy")
     parser.add_argument(
-        "--checkpoint-policy", choices=("final", "legacy-best"),
-        default="final",
-        help=("full mode Stage-2 initialization: final uses checkpoint.pth.tar; "
-              "legacy-best is provided only for old-result reproduction"))
+        "--checkpoint-policy", choices=("best", "final", "legacy-best"),
+        default="best",
+        help=("Stage-2 initialization in full mode: best uses the Stage-1 "
+              "model_best.pth.tar; final uses checkpoint.pth.tar. "
+              "legacy-best is a deprecated alias of best."))
 
     parser.add_argument("--data-dir", default=DEFAULT_DATA_DIR)
     parser.add_argument(
@@ -269,10 +270,9 @@ def build_stage2_command(args, checkpoint, stage1_log_name=None,
 
 
 def checkpoint_path(args, stage1_log_name):
-    filename = (
-        "checkpoint.pth.tar" if args.checkpoint_policy == "final"
-        else "model_best.pth.tar"
-    )
+    filename = ("checkpoint.pth.tar"
+                if args.checkpoint_policy == "final"
+                else "model_best.pth.tar")
     return osp.join(
         _path(args.logs_dir), stage1_log_name, str(args.trial), filename)
 

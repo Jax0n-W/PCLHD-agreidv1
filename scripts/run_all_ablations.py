@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the controlled AG-ReID.v1 2x2 D-AGVA/three-domain ablation.
 
-Only two Stage-1 jobs are trained (D=0 and D=1); their final checkpoints are
+Only two Stage-1 jobs are trained (D=0 and D=1); their best checkpoints are
 then reused by the four Stage-2 branches.
 """
 from __future__ import print_function
@@ -65,7 +65,7 @@ def common_args(args):
         "--iters", str(args.iters),
         "--workers", str(args.workers),
         "--print-freq", str(args.print_freq),
-        "--checkpoint-policy", "final",
+        "--checkpoint-policy", "best",
         "--dynamic-agva-mask-dir", osp.abspath(osp.expanduser(args.mask_dir)),
         "--dynamic-agva-image-root",
         osp.abspath(osp.expanduser(args.aerial_image_root)),
@@ -91,7 +91,7 @@ def stage1_checkpoint(args, dynamic):
         int(dynamic), args.seed)
     return osp.join(
         osp.abspath(osp.expanduser(args.logs_dir)), log_name,
-        str(args.trial), "checkpoint.pth.tar")
+        str(args.trial), "model_best.pth.tar")
 
 
 def main(argv=None):
@@ -106,7 +106,7 @@ def main(argv=None):
     for dynamic in needed_d:
         checkpoint = stage1_checkpoint(args, dynamic)
         if osp.isfile(checkpoint) and not args.rerun_stage1 and not args.dry_run:
-            print("\nReuse Stage-1 final checkpoint: {}".format(checkpoint))
+            print("\nReuse Stage-1 best checkpoint: {}".format(checkpoint))
             continue
         stage1_experiment = "dynamic" if dynamic else "baseline"
         command = [
@@ -117,7 +117,7 @@ def main(argv=None):
         run(command, env, args.dry_run)
         if not args.dry_run and not osp.isfile(checkpoint):
             raise FileNotFoundError(
-                "Expected Stage-1 final checkpoint not found: {}".format(
+                "Expected Stage-1 best checkpoint not found: {}".format(
                     checkpoint))
 
     for experiment in selected:
